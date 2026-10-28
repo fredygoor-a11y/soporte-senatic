@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consola de Control - Técnico SENATIC</title>
+    
+    <!-- Estilos Premium integrados de forma local (No requieren descargas de internet) -->
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #020617; color: #e2e8f0; min-height: 100vh; padding-bottom: 40px; position: relative; }
+        
+        /* Luces de fondo decorativas */
+        .glow { position: absolute; top: -10%; right: -10%; width: 500px; height: 500px; background: rgba(56, 189, 248, 0.1); border-radius: 50%; filter: blur(120px); pointer-events: none; }
+
+        /* Navbar */
+        nav { background-color: #0f172a; border-bottom: 1px solid #334155; padding: 18px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); position: relative; z-index: 20; }
+        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo-flex { display: flex; align-items: center; gap: 12px; }
+        .logo-text { font-size: 20px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; }
+        .tag-mono { font-size: 11px; background-color: #2563eb; color: white; padding: 3px 8px; border-radius: 6px; font-family: monospace; font-weight: 700; margin-left: 8px; }
+        .btn-exit { background-color: #1e293b; color: #94a3b8; padding: 10px 18px; border-radius: 12px; font-size: 12px; font-weight: 700; text-decoration: none; transition: all 0.2s; border: 1px solid #334155; }
+        .btn-exit:hover { background-color: #ef4444; border-color: #dc2626; color: white; }
+
+        /* Contenedor Principal */
+        main { max-width: 1200px; margin: 40px auto; padding: 0 20px; position: relative; z-index: 10; }
+        .grid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+        h2 { font-size: 28px; font-weight: 800; color: white; tracking-tight: -0.5px; }
+        .p-sub { color: #94a3b8; font-size: 14px; margin-top: 4px; }
+        
+        .server-status { background-color: #0f172a; border: 1px solid #334155; padding: 12px 18px; border-radius: 16px; text-align: center; }
+        .status-title { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; display: block; }
+        .status-online { font-size: 13px; font-family: monospace; color: #4ade80; font-weight: 700; margin-top: 2px; display: block; }
+
+        /* Estilos de la Tabla Fuerte */
+        .table-card { background-color: #0f172a; border-radius: 24px; border: 1px solid #1e293b; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        th { background-color: #1e293b; color: #94a3b8; padding: 16px; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid #334155; }
+        td { padding: 18px 16px; border-bottom: 1px solid #1e293b; vertical-align: middle; color: #cbd5e1; }
+        tr:hover { background-color: rgba(30, 41, 59, 0.3); }
+        
+        .order-id { font-family: monospace; font-weight: 800; color: #38bdf8; font-size: 15px; }
+        .pc-brand { font-weight: 700; color: white; font-size: 15px; }
+        .pc-type { font-size: 12px; color: #64748b; margin-top: 2px; }
+        .desc-cell { color: #cbd5e1; font-weight: 500; }
+
+        /* Etiquetas Estilizadas para Fases */
+        .badge { padding: 6px 14px; font-size: 11px; font-weight: 700; border-radius: 9999px; display: inline-flex; text-transform: uppercase; letter-spacing: 0.5px; }
+        .phase-diagnostic { background-color: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); }
+        .phase-accepted { background-color: rgba(168, 85, 247, 0.1); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); }
+        .phase-maintenance { background-color: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+        .phase-ready { background-color: rgba(52, 211, 153, 0.1); color: #4ade80; border: 1px solid rgba(52, 211, 153, 0.2); }
+
+        /* Selectores Modernos */
+        select { background-color: #020617; color: #e2e8f0; font-size: 12px; font-weight: 700; padding: 10px 14px; border-radius: 12px; border: 1px solid #334155; outline: none; cursor: pointer; transition: all 0.2s; }
+        select:focus { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
+    </style>
+</head>
+<body>
+
+    <div class="glow"></div>
+
+    <!-- Navbar Tecnológica -->
+    <nav>
+        <div class="nav-container">
+            <div class="logo-flex">
+                <span style="font-size: 24px;">🔧</span>
+                <span class="logo-text">TALLER DIGITAL <span class="tag-mono">SENATIC</span></span>
+            </div>
+            <a href="/login.html" class="btn-exit">Cerrar Sesión</a>
+        </div>
+    </nav>
+
+    <!-- Contenedor Principal -->
+    <main>
+        <div class="grid-header">
+            <div>
+                <h2>Consola de Administración</h2>
+                <p class="p-sub">Gestión avanzada de órdenes de servicio informático y fases de diagnóstico en la nube.</p>
+            </div>
+            <div class="server-status">
+                <span class="status-title">Servidor Cloud</span>
+                <span class="status-online">● ONLINE</span>
+            </div>
+        </div>
+        
+        <!-- Contenedor de la Tabla -->
+        <div class="table-card">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Orden</th>
+                            <th>Computador / Datos</th>
+                            <th>Descripción del Síntoma</th>
+                            <th>Fase de Diagnóstico</th>
+                            <th>Acciones del Técnico</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-tickets">
+                        <!-- Los datos dinámicos relacionales se inyectan aquí -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Mapea los estilos según el estado actual en Supabase
+        function obtenerEstiloFase(fase) {
+            if (fase === 'Recibido / En Diagnóstico') return 'phase-diagnostic';
+            if (fase === 'Solicitud Aceptada') return 'phase-accepted';
+            if (fase === 'En Mantenimiento Técnico') return 'phase-maintenance';
+            if (fase === 'Listo para Entrega') return 'phase-ready';
+            return 'phase-diagnostic';
+        }
+
+        async function cargarTickets() {
+            // Consulta la ruta relacional activa de tu servidor
+            const respuesta = await fetch('/api/mis-equipos');
+            const tickets = await respuesta.json();
+            const tabla = document.getElementById('tabla-tickets');
+            tabla.innerHTML = '';
+
+            if (tickets.length === 0) {
+                tabla.innerHTML = `<tr><td colspan="5" style="padding: 40px; text-align: center; color: #475569; font-weight: 600;">No hay dispositivos registrados en el taller.</td></tr>`;
+                return;
+            }
+
+            tickets.forEach((ticket, index) => {
+                const estiloBadge = obtenerEstiloFase(ticket.estado);
+                // Si la base de datos no tiene guardada la marca aún, ponemos un valor por defecto escolar
+                const marcaEquipo = ticket.marca || "PC Laboratorio";
+                const tipoEquipo = ticket.tipo_equipo || "Escritorio";
+                
+                tabla.innerHTML += `
+                    <tr>
+                        <td class="order-id">#00${ticket.id || index + 1}</td>
+                        <td>
+                            <div class="pc-brand">${marcaEquipo}</div>
+                            <div class="pc-type">${tipoEquipo}</div>
+                        </td>
+                        <td class="desc-cell">${ticket.descripcion}</td>
+                        <td>
+                            <span class="badge ${estiloBadge}">
+                                ${ticket.estado || 'Recibido / En Diagnóstico'}
+                            </span>
+                        </td>
+                        <td>
+                            <select onchange="actualizarFase(${ticket.id}, this.value)">
+                                <option value="" disabled selected>Cambiar Fase...</option>
+                                <option value="Solicitud Aceptada">1. Aceptar Solicitud</option>
+                                <option value="En Mantenimiento Técnico">2. Pasar a Mantenimiento</option>
+                                <option value="Listo para Entrega">3. Finalizar / Listo</option>
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function actualizarFase(id, nuevaFase) {
+            await fetch('/api/actualizar-ticket', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, estado: nuevaFase })
+            });
+            alert(`¡Orden #${id} actualizada con éxito a: ${nuevaFase}!`);
+            cargarTickets(); // Refresca automáticamente la tabla en vivo
+        }
+
+        window.onload = cargarTickets;
+    </script>
+</body>
+</html>
