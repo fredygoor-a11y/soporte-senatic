@@ -1,174 +1,443 @@
-// Forzamos la eliminación de cualquier variable fantasma en la memoria del script
-delete process.env.DATABASE_URL;
-delete process.env.PGCONNECT_TIMEOUT;
-
 const express = require('express');
 const { Client } = require('pg');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Tu configuración limpia que ya comprobamos que da conexión exitosa
+// ==========================================
+// CONFIGURACIÓN DE SUPABASE
+// Los datos de conexión se configuran en Render.
+// ==========================================
+
 const clienteConfig = {
-  user: 'postgres.enkdkfjvzlrazlylxqgu',
-  host: 'aws-0-us-east-1.pooler.supabase.com',
-  database: 'postgres',
-  password: 'Proyecto2026',
-  port: 6543,
-  ssl: { rejectUnauthorized: false }
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME || 'postgres',
+    password: process.env.DB_PASSWORD,
+    port: Number(process.env.DB_PORT || 6543),
+    ssl: {
+        rejectUnauthorized: false
+    },
+    connectionTimeoutMillis: 15000
 };
+
+// ==========================================
+// CONFIGURACIÓN GENERAL DEL SERVIDOR
+// ==========================================
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Página principal
+app.get('/', (req, res) => {
+    res.redirect('/login.html');
+});
+
+// Archivos HTML, CSS, JS e imágenes
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==========================================
-// 1. RUTA DE REGISTRO DE USUARIOS
-// ==========================================
-app.post('/api/registro', async (req, res) => {
-  const { nombre, correo, contrasena } = req.body;
-  const client = new Client(clienteConfig);
-  try {
+// Función para crear una conexión a Supabase
+async function conectarBD() {
+    const client = new Client(clienteConfig);
     await client.connect();
-    const query = 'INSERT INTO usuarios (nombre, correo, contrasena, rol) VALUES (\$1, \$2, \$3, \$4)';
-    await client.query(query, [nombre, correo, contrasena, 'cliente']);
-    await client.end();
-    
-    res.send(`
-      <script src="https://jsdelivr.net"></script>
-      <div style="background-color:#020617; height:100vh; display:flex; align-items:center; justify-content:center; font-family:sans-serif;" class="flex items-center justify-center">
-        <div style="background-color:#0f172a; border:1px solid #334155; padding:40px; border-radius:24px; text-align:center; max-w:400px; margin:20px;">
-          <div style="font-size:50px; margin-bottom:20px;">🎉</div>
-          <h1 style="color:white; font-size:24px; font-weight:800; margin-bottom:10px;">¡Registro Exitoso!</h1>
-          <p style="color:#94a3b8; font-size:14px; margin-bottom:24px;">Tu cuenta ha sido creada en la base de datos en la nube de Supabase.</p>
-          <a href="/login.html" style="background:linear-gradient(135deg, #2563eb 0%, #06b6d4 100%); color:white; padding:14px; border-radius:14px; text-decoration:none; font-weight:700; display:block;">Ir al Inicio de Sesión</a>
-        </div>
-      </div>
+    return client;
+}
+
+// Página para mostrar mensajes al usuario
+function mostrarMensaje(res, titulo, mensaje, color = '#ef4444', enlace = '/login.html', textoEnlace = 'Volver al inicio de sesión') {
+    res.status(200).send(`
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${titulo} - Soporte SENATIC</title>
+            <style>
+                * { box-sizing: border-box; }
+                body {
+                    margin: 0;
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                    background: #020617;
+                    color: white;
+                    font-family: 'Segoe UI', sans-serif;
+                }
+                .card {
+                    width: 100%;
+                    max-width: 450px;
+                    padding: 40px;
+                    border-radius: 22px;
+                    text-align: center;
+                    background: #0f172a;
+                    border: 1px solid #334155;
+                    box-shadow: 0 20px 50px rgba(0,0,0,.4);
+                }
+                h1 { font-size: 25px; }
+                p { color: #cbd5e1; line-height: 1.6; }
+                a {
+                    display: block;
+                    margin-top: 25px;
+                    padding: 14px;
+                    color: white;
+                    text-decoration: none;
+                    font-weight: bold;
+                    border-radius: 12px;
+                    background: linear-gradient(135deg,#2563eb,#06b6d4);
+                }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div style="font-size:48px;">${color === '#16a34a' ? '🎉' : '⚠️'}</div>
+                <h1>${titulo}</h1>
+                <p>${mensaje}</p>
+                <a href="${enlace}">${textoEnlace}</a>
+            </div>
+        </body>
+        </html>
     `);
-  } catch (error) {
-    console.error(error);
-    res.send('<p style="color:white; font-family:sans-serif; text-align:center; margin-top:2rem;">Error al registrar en la base de datos.</p>');
-  }
-});
+}
 
 // ==========================================
-// 2. RUTA DE INICIO DE SESIÓN (LOGIN)
+// 1. REGISTRO DE USUARIOS
+// Tabla: usuarios
+// Campos: nombre, correo, contrasena, rol
 // ==========================================
-app.post('/api/login', async (req, res) => {
-  const { correo, contrasena } = req.body;
-  const client = new Client(clienteConfig);
-  try {
-    await client.connect();
-    const query = 'SELECT * FROM usuarios WHERE correo = \$1';
-    const resultado = await client.query(query, [correo]);
-    await client.end();
 
-    if (resultado.rows.length === 0 || resultado.rows[0].contrasena !== contrasena) {
-      return res.send('<p style="font-family:sans-serif; text-align:center; margin-top:2rem; color:#ef4444; font-weight:bold;">❌ Credenciales inválidas. Verifica tu correo o clave.</p>');
+app.post('/api/registro', async (req, res) => {
+    const { nombre, correo, contrasena } = req.body;
+
+    if (!nombre || !correo || !contrasena) {
+        return mostrarMensaje(
+            res,
+            'Datos incompletos',
+            'Por favor completa todos los campos del formulario.'
+        );
     }
 
-    // Si todo está bien, lo envía directo a su panel
-    res.redirect('/panel-cliente.html');
-  } catch (error) {
-    console.error(error);
-    res.send('<p style="color:white; font-family:sans-serif; text-align:center; margin-top:2rem;">Error en el servidor de login.</p>');
-  }
+    let client;
+
+    try {
+        client = await conectarBD();
+
+        // Comprobar si el correo ya está registrado
+        const consultaCorreo = await client.query(
+            'SELECT id FROM usuarios WHERE correo = $1',
+            [correo]
+        );
+
+        if (consultaCorreo.rows.length > 0) {
+            return mostrarMensaje(
+                res,
+                'Correo ya registrado',
+                'Este correo electrónico ya tiene una cuenta. Intenta iniciar sesión.'
+            );
+        }
+
+        // Registrar usuario conservando la estructura existente
+        await client.query(
+            'INSERT INTO usuarios (nombre, correo, contrasena, rol) VALUES ($1, $2, $3, $4)',
+            [nombre, correo, contrasena, 'cliente']
+        );
+
+        return mostrarMensaje(
+            res,
+            '¡Registro exitoso!',
+            'Tu cuenta ha sido creada correctamente. Ya puedes ingresar a la plataforma.',
+            '#16a34a',
+            '/login.html',
+            'Ir al inicio de sesión'
+        );
+
+    } catch (error) {
+        console.error('ERROR EN REGISTRO:', error.message);
+
+        return mostrarMensaje(
+            res,
+            'No se pudo completar el registro',
+            'Ocurrió un problema al guardar tu información. Verifica la conexión con el servidor e intenta nuevamente.'
+        );
+
+    } finally {
+        if (client) {
+            await client.end().catch(err =>
+                console.error('Error cerrando conexión:', err.message)
+            );
+        }
+    }
 });
 
 // ==========================================
-// 3. RUTA DE REGISTRO DE COMPUTADORAS Y TICKETS
+// 2. INICIO DE SESIÓN
+// Tabla: usuarios
 // ==========================================
+
+app.post('/api/login', async (req, res) => {
+    const { correo, contrasena } = req.body;
+
+    if (!correo || !contrasena) {
+        return mostrarMensaje(
+            res,
+            'Datos incompletos',
+            'Debes ingresar tu correo y contraseña.'
+        );
+    }
+
+    let client;
+
+    try {
+        client = await conectarBD();
+
+        const resultado = await client.query(
+            'SELECT * FROM usuarios WHERE correo = $1',
+            [correo]
+        );
+
+        if (
+            resultado.rows.length === 0 ||
+            resultado.rows[0].contrasena !== contrasena
+        ) {
+            return mostrarMensaje(
+                res,
+                'Credenciales incorrectas',
+                'Verifica tu correo electrónico y contraseña.'
+            );
+        }
+
+        // Acceso al panel del cliente
+        return res.redirect('/panel-cliente.html');
+
+    } catch (error) {
+        console.error('ERROR EN LOGIN:', error.message);
+
+        return mostrarMensaje(
+            res,
+            'Error de inicio de sesión',
+            'No fue posible consultar la base de datos. Intenta nuevamente más tarde.'
+        );
+
+    } finally {
+        if (client) {
+            await client.end().catch(err =>
+                console.error('Error cerrando conexión:', err.message)
+            );
+        }
+    }
+});
+
+// ==========================================
+// 3. REGISTRO DE EQUIPOS Y TICKETS
+// Tablas: equipos y tickets
+// ==========================================
+
 app.post('/api/registrar-equipo', async (req, res) => {
-  const { tipo_equipo, marca, descripcion } = req.body;
-  const client = new Client(clienteConfig);
-  try {
-    await client.connect();
-    // Registramos el computador usando el ID de usuario 1 (El de tu prueba anterior)
-    const queryEquipo = 'INSERT INTO equipos (usuario_id, tipo_equipo, marca) VALUES (\$1, \$2, \$3) RETURNING id';
-    const resultadoEquipo = await client.query(queryEquipo, [1, tipo_equipo, marca]);
-    const equipoId = resultadoEquipo.rows[0].id;
+    const { tipo_equipo, marca, descripcion } = req.body;
 
-    // Vinculamos automáticamente el ticket técnico
-    const queryTicket = 'INSERT INTO tickets (equipo_id, descripcion, estado) VALUES (\$1, \$2, \$3)';
-    await client.query(queryTicket, [equipoId, descripcion, 'Recibido / En Diagnóstico']);
-    await client.end();
+    let client;
 
-    // Redirecciona al panel de inmediato para pintar la PC abajo en la lista
-    res.redirect('/panel-cliente.html');
-  } catch (error) {
-    console.error(error);
-    res.send('<p style="color:white; font-family:sans-serif; text-align:center; margin-top:2rem;">Error al registrar la computadora.</p>');
-  }
+    try {
+        client = await conectarBD();
+
+        await client.query('BEGIN');
+
+        // Se conserva el usuario_id = 1 de tu código original.
+        const resultadoEquipo = await client.query(
+            'INSERT INTO equipos (usuario_id, tipo_equipo, marca) VALUES ($1, $2, $3) RETURNING id',
+            [1, tipo_equipo, marca]
+        );
+
+        const equipoId = resultadoEquipo.rows[0].id;
+
+        await client.query(
+            'INSERT INTO tickets (equipo_id, descripcion, estado) VALUES ($1, $2, $3)',
+            [equipoId, descripcion, 'Recibido / En Diagnóstico']
+        );
+
+        await client.query('COMMIT');
+
+        return res.redirect('/panel-cliente.html');
+
+    } catch (error) {
+        if (client) {
+            await client.query('ROLLBACK').catch(() => {});
+        }
+
+        console.error('ERROR REGISTRANDO EQUIPO:', error.message);
+
+        return mostrarMensaje(
+            res,
+            'Error al registrar el equipo',
+            'No fue posible guardar el equipo y su ticket técnico.'
+        );
+
+    } finally {
+        if (client) {
+            await client.end().catch(err =>
+                console.error('Error cerrando conexión:', err.message)
+            );
+        }
+    }
 });
 
 // ==========================================
-// 4. RUTA PARA QUE EL USUARIO CONSULTE SUS EQUIPOS Y VER EL ESTADO AL DÍA
+// 4. CONSULTAR EQUIPOS Y TICKETS
 // ==========================================
+
 app.get('/api/mis-equipos', async (req, res) => {
-  const client = new Client(clienteConfig);
-  try {
-    await client.connect();
-    const query = `
-      SELECT t.id, e.marca, e.tipo_equipo, t.descripcion, t.estado, t.fecha_ingreso 
-      FROM tickets t 
-      JOIN equipos e ON t.equipo_id = e.id 
-      ORDER BY t.id DESC
-    `;
-    const resultado = await client.query(query);
-    await client.end();
-    res.json(resultado.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al consultar equipos desde internet' });
-  }
+    let client;
+
+    try {
+        client = await conectarBD();
+
+        const resultado = await client.query(`
+            SELECT
+                t.id,
+                e.marca,
+                e.tipo_equipo,
+                t.descripcion,
+                t.estado,
+                t.fecha_ingreso
+            FROM tickets t
+            JOIN equipos e ON t.equipo_id = e.id
+            ORDER BY t.id DESC
+        `);
+
+        return res.json(resultado.rows);
+
+    } catch (error) {
+        console.error('ERROR CONSULTANDO EQUIPOS:', error.message);
+
+        return res.status(500).json({
+            error: 'Error al consultar los equipos desde la base de datos.'
+        });
+
+    } finally {
+        if (client) {
+            await client.end().catch(err =>
+                console.error('Error cerrando conexión:', err.message)
+            );
+        }
+    }
 });
 
 // ==========================================
-// 5. RUTA PARA EL PANEL TÉCNICO (ADMIN)
+// 5. CONSULTAR TODOS LOS TICKETS
 // ==========================================
+
 app.get('/api/tickets', async (req, res) => {
-  const client = new Client(clienteConfig);
-  try {
-    await client.connect();
-    const resultado = await client.query('SELECT * FROM tickets ORDER BY id DESC');
-    await client.end();
-    res.json(resultado.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al consultar tickets globales' });
-  }
+    let client;
+
+    try {
+        client = await conectarBD();
+
+        const resultado = await client.query(
+            'SELECT * FROM tickets ORDER BY id DESC'
+        );
+
+        return res.json(resultado.rows);
+
+    } catch (error) {
+        console.error('ERROR CONSULTANDO TICKETS:', error.message);
+
+        return res.status(500).json({
+            error: 'Error al consultar los tickets.'
+        });
+
+    } finally {
+        if (client) {
+            await client.end().catch(err =>
+                console.error('Error cerrando conexión:', err.message)
+            );
+        }
+    }
 });
 
 // ==========================================
-// 6. RUTA PARA CAMBIAR LA FASE DEL DIAGNÓSTICO
+// 6. ACTUALIZAR ESTADO DEL TICKET
 // ==========================================
+
 app.post('/api/actualizar-ticket', async (req, res) => {
-  const { id, estado } = req.body;
-  const client = new Client(clienteConfig);
-  try {
-    await client.connect();
-    await client.query('UPDATE tickets SET estado = \$1 WHERE id = \$2', [estado, id]);
-    await client.end();
-    res.json({ exito: true });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al actualizar el estado en internet' });
-  }
+    const { id, estado } = req.body;
+
+    let client;
+
+    try {
+        client = await conectarBD();
+
+        const resultado = await client.query(
+            'UPDATE tickets SET estado = $1 WHERE id = $2',
+            [estado, id]
+        );
+
+        return res.json({
+            exito: true,
+            filasActualizadas: resultado.rowCount
+        });
+
+    } catch (error) {
+        console.error('ERROR ACTUALIZANDO TICKET:', error.message);
+
+        return res.status(500).json({
+            exito: false,
+            error: 'No fue posible actualizar el estado del ticket.'
+        });
+
+    } finally {
+        if (client) {
+            await client.end().catch(err =>
+                console.error('Error cerrando conexión:', err.message)
+            );
+        }
+    }
 });
 
-// Prueba de conexión blindada e independiente
-const clientPrueba = new Client(clienteConfig);
-clientPrueba.connect()
-  .then(() => {
-    console.log('⚡ ¡CONEXIÓN EXITOSA TOTAL A SUPABASE EN LA NUBE!');
-    return clientPrueba.query('SELECT NOW()');
-  })
-  .then(() => clientPrueba.end())
-  .catch(err => {
-    console.log('❌ Error directo de conexión:', err.message);
-  });
+// ==========================================
+// 7. COMPROBAR CONEXIÓN CON SUPABASE
+// ==========================================
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor activo con todas las funciones unificadas en http://localhost:${PORT}`);
+app.get('/api/estado-servidor', async (req, res) => {
+    let client;
+
+    try {
+        client = await conectarBD();
+        await client.query('SELECT NOW()');
+
+        return res.json({
+            servidor: 'Funcionando',
+            baseDatos: 'Conectada'
+        });
+
+    } catch (error) {
+        console.error('ERROR DE CONEXIÓN SUPABASE:', error.message);
+
+        return res.status(500).json({
+            servidor: 'Funcionando',
+            baseDatos: 'Error de conexión'
+        });
+
+    } finally {
+        if (client) {
+            await client.end().catch(() => {});
+        }
+    }
+});
+
+// ==========================================
+// INICIAR SERVIDOR
+// ==========================================
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor Soporte SENATIC activo en el puerto ${PORT}`);
+
+    if (
+        !clienteConfig.user ||
+        !clienteConfig.host ||
+        !clienteConfig.password
+    ) {
+        console.error('FALTAN VARIABLES DE CONEXIÓN DE SUPABASE EN RENDER.');
+    }
 });
